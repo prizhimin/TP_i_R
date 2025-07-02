@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Главная{% endblock %}
+{% block content %}
+    <div class="container">
+        <h1>Список доступных приложений</h1>
+        <ul class="report-list">
+            {% for app in apps %}
+                <li>
+                    <a href="/{{app.name}}/" class="action-button">
+                        {{ app.comment }}
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endblock %}
+{% block buttons %}
+    <div class="actions">
+        <a href="{% url 'accounts:custom_logout'  %}">
+            <button type="button">Выход</button>
+        </a>
+        <a href="{% url 'accounts:change_password' %}">
+            <button type="button">Смена пароля</button>
+        </a>
+        <a href="{% url 'dashboard:ssl_certificate' %}">
+            <button type="button">Установка SSL-сертификата</button>
+        </a>
+        {% if is_admin %}
+            <a href="{% url 'admin:index' %}">
+                <button type="button" class="yellow-button">Администрирование</button>
+            </a>
+        {% endif %}
+    </div>
+{% endblock %}
