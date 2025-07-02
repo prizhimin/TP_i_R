@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{%  block styles %}
+    /* Специальные стили для широких полей */
+    <style>
+    .wide-field textarea,
+    .wide-field input {
+        width: 100%;
+        box-sizing: border-box;
+    }
+    </style>
+{% endblock %}
+{% block content %}
+    <div class="container report-list">
+        <form method="post" class="form-group">
+            {% csrf_token %}
+            <div class="container">
+                <table>
+                    {% for f in form %}
+                        <tr class="{% if f.name in 'remedial_action,directive_executive,existing_shortcomings' %}wide-field{% endif %}">
+                            <th>{{ f.label }} </th>
+                            <th>{{ f }} </th>
+                        </tr>
+                    {% endfor %}
+                </table>
+            </div>
+            <div class="actions" style="text-align: center; margin-top: 10px">
+                <button type="submit">Внести данные</button>
+            </div>
+        </form>
+    </div>
+{% endblock %}
+{% block buttons %}
+    <div class="actions">
+        <!-- Кнопка "Назад к списку отчётов" -->
+        <a href="{% url 'tpir:tpir_list' %}" class="action-link">
+            <button type="button">Назад к списку отчётов</button>
+        </a>
+        <!-- Кнопка "Вернуться на Главную" -->
+        <a href="{% url 'dashboard:dashboard' %}" class="action-link">
+            <button type="button">Вернуться на Главную</button>
+        </a>
+    </div>
+{% endblock %}

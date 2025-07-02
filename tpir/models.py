@@ -115,12 +115,12 @@ class Tpir(models.Model):
     )
     remedial_action = models.CharField(
         verbose_name="Наименование мероприятия",
-        max_length=100,
+        max_length=250,
         default=''
     )
     directive_executive = models.CharField(
         verbose_name="Орган исполнительной власти",
-        max_length=100,
+        max_length=250,
         default=''
     )
     existing_shortcomings = models.CharField(

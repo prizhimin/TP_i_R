@@ -1,3 +1,4 @@
+from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
 from django.shortcuts import redirect, get_object_or_404
 from django.contrib import messages
@@ -61,6 +62,26 @@ def tpir_list(request):
     return render(request, 'tpir/tpir_list.html', context)
 
 
+@login_required
+def tpir_add(request):
+    """Добавление нового отчета ТПИР"""
+    if request.method == 'POST':
+        form = TpirForm(request.POST)
+        if form.is_valid():
+            new_tpir = form.save(commit=False)
+            new_tpir.created_by = request.user  # Устанавливаем создателя
+            new_tpir.save()
+            messages.success(request, 'Отчет успешно добавлен')
+            return redirect('tpir:tpir_detail', pk=new_tpir.id)
+    else:
+        form = TpirForm(user=request.user)
+
+    context = {
+        'form': form,
+        'title': 'Добавление нового отчета'
+    }
+    return render(request, 'tpir/add_tpir.html', context)
+
 # @login_required
 # def tpir_add(request):
 #     """Добавление нового отчета ТПИР"""
@@ -84,25 +105,69 @@ def tpir_list(request):
 
 @login_required
 def tpir_detail(request, pk: int):
-    # Получаем объект отчёта по его id
+    """
+    Детальный просмотр отчета ТПИР с проверкой доступа и всеми связанными данными
+    """
+    # Получаем отчет с оптимизированными запросами
+    tpir = get_object_or_404(
+        Tpir.objects.select_related(
+            'department',
+            'facility',
+            'created_by',
+            'updated_by'
+        ).prefetch_related(
+            'attached_files',
+            'finance_records'
+        ),
+        pk=pk
+    )
+
+    # Проверяем доступ пользователя к отчету
+    user_departments = TpirUserDepartment.objects.filter(
+        user=request.user
+    ).values_list('department__id', flat=True)
+
+    if tpir.department_id not in user_departments:
+        raise PermissionDenied("У вас нет доступа к этому отчету")
+
+    # Подготавливаем финансовые данные
+    finances = tpir.finance_records.all().order_by('year')
+
+    context = {
+        'tpir': tpir,
+        'title': f'Отчет ТПИР #{tpir.id}',
+        'finances': finances,  # Передаем queryset вместо словаря
+        'has_attachments': tpir.has_attachments(),
+        'current_year': timezone.now().year,
+    }
+
+    return render(request, 'tpir/tpir_detail.html', context)
+
+
+@login_required
+def tpir_edit(request, pk):
+    """Редактирование существующего отчета ТПИР"""
     tpir = get_object_or_404(Tpir, pk=pk)
 
-    return HttpResponse(f'Детали ТПиР {pk}')
+    if request.method == 'POST':
+        form = TpirForm(request.POST, instance=tpir)
+        # form = TpirForm(request.POST, instance=tpir, user=request.user)
+        if form.is_valid():
+            updated_tpir = form.save(commit=False)
+            updated_tpir.updated_by = request.user  # Устанавливаем редактора
+            updated_tpir.save()
+            messages.success(request, 'Отчет успешно обновлен')
+            return redirect('tpir:tpir_detail', pk=pk)
+    else:
+        form = TpirForm(instance=tpir, user=request.user)
 
-# @login_required
-# def tpir_detail(request, pk: int):
-#     """Просмотр деталей отчета ТПИР"""
-#     queryset: QuerySet = Tpir.objects.select_related(
-#         'department', 'facility', 'created_by', 'updated_by'
-#     )
-#     tpir = get_object_or_404(queryset, pk=pk)
-#
-#     context = {
-#         'tpir': tpir,
-#         'title': f'Отчет #{tpir.id}'
-#     }
-#     return render(request, 'tpir/tpir_detail.html', context)
-#
+    context = {
+        'form': form,
+        'title': f'Редактирование отчета #{tpir.id}',
+        'tpir': tpir
+    }
+    return render(request, 'tpir/edit_tpir.html', context)
+
 #
 # @login_required
 # def tpir_update(request, pk):

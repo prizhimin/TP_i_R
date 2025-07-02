@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Добавление запись ТПИР{% endblock %}
+{% block styles %}
+    <style>
+        table {
+            width: 100%; /* Установка ширины таблицы на 100% от родительского контейнера */
+        }
+
+        th:first-child, td:first-child {
+            width: 35%; /* Ширина первого столбца 35% от ширины таблицы */
+        }
+
+        th:last-child, td:last-child {
+            width: 65%; /* Ширина второго столбца 65% от ширины таблицы */
+        }
+        textarea {
+            width: 100%; /* Установка ширины TextArea на 100% от родительского контейнера (второго столбца) */
+        }
+    </style>
+{%  endblock %}
+{% block content %}
+    <h1>Добавление запись ТПИР</h1>
+    <div class="container report-list">
+        <form method="post" class="form-group">
+            {% csrf_token %}
+            <div class="container">
+                <table>
+                    {% for f in form %}
+                        <tr>
+                            <th>{{ f.label }} </th>
+                            <th>{{ f }} </th>
+                        </tr>
+                    {% endfor %}
+                </table>
+            </div>
+            <div class="actions" style="text-align: center; margin-top: 10px">
+                <button type="submit">Внести данные</button>
+            </div>
+        </form>
+    </div>
+{% endblock %}
+{% block buttons %}
+    <div class="actions">
+        <!-- Кнопка "Назад к списку отчётов" -->
+        <a href="{% url 'tpir:tpir_list' %}" class="action-link">
+            <button type="button">Назад к списку отчётов</button>
+        </a>
+        <!-- Кнопка "Вернуться на Главную" -->
+        <a href="{% url 'dashboard:dashboard' %}" class="action-link">
+            <button type="button">Вернуться на Главную</button>
+        </a>
+    </div>
+{% endblock %}

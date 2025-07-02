@@ -5,15 +5,20 @@ from django.utils import timezone
 
 
 class TpirForm(forms.ModelForm):
-    def __init__(self, user, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
+        # Извлекаем user перед вызовом super()
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
-        # Ограничиваем выбор филиалов только теми, к которым привязан пользователь
-        user_departments = TpirUserDepartment.objects.filter(user=user)
-        department_ids = user_departments.values_list('department__id', flat=True)
-        self.fields['department'].queryset = Department.objects.filter(id__in=department_ids).order_by('name')
+        # Если user передан - фильтруем филиалы
+        if self.user:
+            user_departments = TpirUserDepartment.objects.filter(user=self.user)
+            department_ids = user_departments.values_list('department__id', flat=True)
+            self.fields['department'].queryset = Department.objects.filter(
+                id__in=department_ids
+            ).order_by('name')
 
-        # Обновляем queryset для объектов, чтобы показывать только объекты выбранного филиала
+        # Обновляем queryset для объектов
         if 'department' in self.data:
             try:
                 department_id = int(self.data.get('department'))
@@ -30,18 +35,13 @@ class TpirForm(forms.ModelForm):
         else:
             self.fields['facility'].queryset = TpirFacility.objects.none()
 
-        # Настройка опциональных полей
+        # Настройка полей
         self.fields['existing_shortcomings'].required = False
-
-        # Форматы дат
         self.fields['directive_date'].input_formats = ['%d.%m.%Y']
         self.fields['directive_end_date'].input_formats = ['%d.%m.%Y']
-
-        # Виджеты для полей
         self.fields['directive_date'].widget = forms.DateInput(attrs={'class': 'datepicker'})
         self.fields['directive_end_date'].widget = forms.DateInput(attrs={'class': 'datepicker'})
 
-        # Если объект существует, делаем некоторые поля read-only
         if self.instance.pk:
             self.fields['directive_number'].widget.attrs['readonly'] = True
             self.fields['directive_date'].widget.attrs['readonly'] = True
@@ -63,20 +63,15 @@ class TpirForm(forms.ModelForm):
         directive_date = cleaned_data.get('directive_date')
         directive_end_date = cleaned_data.get('directive_end_date')
 
-        # Проверка, что срок устранения не раньше даты предписания
         if directive_date and directive_end_date:
             if directive_end_date < directive_date:
                 raise ValidationError({
                     'directive_end_date': 'Срок устранения нарушений не может быть раньше даты предписания'
                 })
-
-            # Дополнительная проверка, что срок устранения в будущем
-            current_date = timezone.now().date()
-            if directive_end_date < current_date:
+            if directive_end_date < timezone.now().date():
                 raise ValidationError({
                     'directive_end_date': 'Срок устранения нарушений должен быть в будущем'
                 })
-
         return cleaned_data
 
 

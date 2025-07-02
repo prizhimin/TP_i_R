@@ -7,9 +7,9 @@ app_name = 'tpir'
 urlpatterns = [
     # Основные маршруты для отчетов ТПИР
     path('', views.tpir_list, name='tpir_list'),
-    # path('add/', views.tpir_add, name='tpir_add'),
+    path('add/', views.tpir_add, name='tpir_add'),
     path('<int:pk>/', views.tpir_detail, name='tpir_detail'),
-    # path('<int:tpir_id>/edit/', views.tpir_edit, name='tpir_edit'),
+    path('<int:pk>/edit/', views.tpir_edit, name='tpir_edit'),
     # path('<int:tpir_id>/delete/', views.tpir_delete, name='tpir_delete'),
     #
     # # Маршруты для работы с финансовыми данными

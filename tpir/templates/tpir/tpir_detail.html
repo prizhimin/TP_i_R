@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ title }}{% endblock %}
+{% block styles %}
+    <style>
+    table {
+        width: 100%; /* Установка ширины таблицы на 100% от родительского контейнера */
+    }
+
+    th:first-child, td:first-child {
+        width: 35%; /* Ширина первого столбца 35% от ширины таблицы */
+    }
+
+    th:last-child, td:last-child {
+        width: 65%; /* Ширина второго столбца 65% от ширины таблицы */
+    }
+    textarea {
+        width: 100%; /* Установка ширины TextArea на 100% от родительского контейнера (второго столбца) */
+    }
+    </style>
+{% endblock %}
+{% block content %}
+<div class="container">
+    <h1>{{ title }}</h1>
+    <div class="report-detail">
+        <!-- Основная информация -->
+            <h2>Основные данные</h2>
+            <table onclick="redirectToEditPage();">
+                <tr>
+                    <th>Филиал:</th>
+                    <td>{{ tpir.department.name }}</td>
+                </tr>
+                <tr>
+                    <th>Объект:</th>
+                    <td>{{ tpir.facility.name }}</td>
+                </tr>
+                <tr>
+                    <th>Номер предписания:</th>
+                    <td>{{ tpir.directive_number }}</td>
+                </tr>
+                <tr>
+                    <th>Дата предписания:</th>
+                    <td>{{ tpir.directive_date|date:"d.m.Y" }}</td>
+                </tr>
+                <tr>
+                    <th>Срок устранения:</th>
+                    <td>{{ tpir.directive_end_date|date:"d.m.Y" }}</td>
+                </tr>
+                <tr>
+                    <th>Категория опасности:</th>
+                    <td>{{ tpir.get_danger_display }}</td>
+                </tr>
+                <tr>
+                    <th>Вид работ:</th>
+                    <td>{{ tpir.get_type_tpir_display }}</td>
+                </tr>
+                <tr>
+                    <th>Наименование мероприятия:</th>
+                    <td>{{ tpir.remedial_action }}</td>
+                </tr>
+                <tr>
+                    <th>Орган исполнительной власти:</th>
+                    <td>{{ tpir.directive_executive }}</td>
+                </tr>
+                <tr>
+                    <th>Имеющиеся недостатки:</th>
+                    <td>{{ tpir.existing_shortcomings }}</td>
+                </tr>
+            </table>
+    </div>
+
+    <!-- Финансовая информация -->
+    <div class="report-detail">
+        <h2>Финансирование</h2>
+        <table>
+            {% for finance in finances %}
+            <tr>
+                <th>{{ finance.year }} год:</th>
+                <td>{{ finance.amount|default:"0" }} руб.</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="2">Нет финансовых данных</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+
+    <!-- Вложения -->
+    {% if has_attachments %}
+    <div class="report-section">
+        <h2>Прикрепленные файлы</h2>
+        <ul>
+            {% for file in tpir.attached_files.all %}
+            <li>
+{#                    <a href="{% url 'tpir:download_file' file_id=file.id %}">#}
+                    {{ file.file.name }}
+{#                    </a>#}
+                ({{ file.uploaded_at|date:"d.m.Y H:i" }})
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Дополнительная информация -->
+    <h2>Дополнительно</h2>
+    <p><strong>Создал:</strong> {{ tpir.created_by.get_full_name }} ({{ tpir.created_at|date:"d.m.Y H:i" }})</p>
+    {% if tpir.updated_by %}
+    <p><strong>Обновил:</strong> {{ tpir.updated_by.get_full_name }} ({{ tpir.updated_at|date:"d.m.Y H:i" }})</p>
+    {% endif %}
+</div>
+<script>
+    function redirectToEditPage() {
+        window.location.href = '{% url 'tpir:tpir_edit' pk=tpir.id  %}';
+    }
+</script>
+{% endblock %}
+{% block buttons %}
+    <div class="actions">
+        <!-- Кнопка "Редактировать" -->
+        <a href="{% url 'tpir:tpir_edit' pk=tpir.id %}" class="action-link">
+            <button type="button">Редактировать</button>
+        </a>
+        <!-- Кнопка "Назад к списку отчётов" -->
+        <a href="{% url 'tpir:tpir_list' %}" class="action-link">
+            <button type="button">Назад к списку отчётов</button>
+        </a>
+
+        <!-- Кнопка "Вернуться на Главную" -->
+        <a href="{% url 'dashboard:dashboard' %}" class="action-link">
+            <button type="button">Вернуться на Главную</button>
+        </a>
+    </div>
+</div>
+{% endblock %}
