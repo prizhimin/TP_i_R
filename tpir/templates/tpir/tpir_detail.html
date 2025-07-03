@@ -72,7 +72,7 @@
     <!-- Финансовая информация -->
     <div class="report-detail">
         <h2>Финансирование</h2>
-        <table>
+        <table onclick="redirectToEditPage();">
             {% for finance in finances %}
             <tr>
                 <th>{{ finance.year }} год:</th>
