@@ -73,10 +73,10 @@
         <a href="{% url 'dashboard:dashboard' %}" class="action-link">
             <button type="button" class="home-button">На главную</button>
         </a>
-{#        {% if perms.tpir.add_tpir %}#}
-{#        <a href="{% url 'tpir:add_tpir' %}" class="action-link">#}
-{#            <button type="button" class="add-button">Новый отчет</button>#}
-{#        </a>#}
-{#        {% endif %}#}
+        {% if perms.tpir.add_tpir %}
+        <a href="{% url 'tpir:tpir_add' %}" class="action-link">
+            <button type="button" class="add-button">Новый отчет</button>
+        </a>
+        {% endif %}
     </div>
 {% endblock %}

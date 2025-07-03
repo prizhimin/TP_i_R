@@ -1,34 +1,226 @@
 {% extends 'base.html' %}
-{%  block styles %}
-    /* Специальные стили для широких полей */
-    <style>
-    .wide-field textarea,
-    .wide-field input {
+{% block title %}Редактирование записи ТПИР{% endblock %}
+{% block styles %}
+<style>
+    /* Основные стили таблицы */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    {#th:first-child, td:first-child {#}
+    {#    width: 35%;#}
+    {#    padding: 8px;#}
+    {#    border: 1px solid #ddd;#}
+    {#}#}
+    {#th:last-child, td:last-child {#}
+    {#    width: 65%;#}
+    {#    padding: 8px;#}
+    {#    border: 1px solid #ddd;#}
+    {#}#}
+    textarea {
         width: 100%;
         box-sizing: border-box;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        resize: vertical;
     }
-    </style>
+    /* Стиль для всех полей ввода и выпадающих списков */
+    input[type="text"], select {
+        width: 100%;
+        box-sizing: border-box;
+        {#padding: 8px;#}
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+    th {
+        background-color: #f4f4f4;
+        font-weight: bold;
+        text-align: left;
+    }
+    tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+    tr:hover {
+        background-color: #f1f1f1;
+    }
+
+    /* Стили модального окна */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 500px;
+    }
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+    }
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    /* Стили кнопок */
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-top: 5px;
+    }
+    .btn-primary:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+    }
+    .error-message {
+        color: red;
+        font-size: 14px;
+        margin: 5px 0;
+    }
+</style>
 {% endblock %}
+
 {% block content %}
+    <h1>Редактирование записи ТПИР</h1>
     <div class="container report-list">
         <form method="post" class="form-group">
             {% csrf_token %}
             <div class="container">
                 <table>
-                    {% for f in form %}
-                        <tr class="{% if f.name in 'remedial_action,directive_executive,existing_shortcomings' %}wide-field{% endif %}">
-                            <th>{{ f.label }} </th>
-                            <th>{{ f }} </th>
+                    {% for field in form %}
+                        <tr>
+                            <th>{{ field.label_tag }}</th>
+                            <td>
+                                {{ field }}
+                                <!-- Добавляем кнопку только для поля facility -->
+                                {% if field.name == 'facility' %}
+                                <button type="button" id="addFacilityBtn" class="btn-primary"
+                                        {% if not form.department.value %}disabled{% endif %}>
+                                    Добавить новый объект
+                                </button>
+                                {% endif %}
+
+                                <!-- Вывод ошибок -->
+                                {% if field.errors %}
+                                <div class="error-message">
+                                    {% for error in field.errors %}
+                                        <p>{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </td>
                         </tr>
                     {% endfor %}
                 </table>
             </div>
             <div class="actions" style="text-align: center; margin-top: 10px">
-                <button type="submit">Внести данные</button>
+                <button type="submit">Сохранить изменения</button>
             </div>
         </form>
     </div>
+
+    <!-- Модальное окно добавления объекта -->
+    <div id="facilityModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeFacilityModal">&times;</span>
+            <h2>Добавить новый объект</h2>
+            <form id="facilityForm" method="post" action="{% url 'tpir:tpir_add_facility' %}">
+                {% csrf_token %}
+                <input type="hidden" name="department_id" id="facilityDepartmentId" value="{{ form.department.value }}">
+                <label for="facilityName">Название объекта</label>
+                <input type="text" name="name" id="facilityName" required
+                       style="width: 100%; padding: 10px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc;"><br><br>
+                <button type="submit" class="btn-primary">Добавить</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    $(document).ready(function() {
+        // Инициализация при загрузке
+        const initialDept = $('#id_department').val();
+        $('#facilityDepartmentId').val(initialDept);
+        $('#addFacilityBtn').prop('disabled', !initialDept);
+
+        // Обработчики модального окна
+        $('#addFacilityBtn').click(function() {
+            $('#facilityModal').show();
+        });
+        $('#closeFacilityModal').click(function() {
+            $('#facilityModal').hide();
+        });
+        $(window).click(function(e) {
+            if ($(e.target).hasClass('modal')) {
+                $('.modal').hide();
+            }
+        });
+
+        // Динамическая загрузка объектов при изменении филиала
+        $('#id_department').change(function() {
+            const deptId = $(this).val();
+            $('#facilityDepartmentId').val(deptId);
+            $('#addFacilityBtn').prop('disabled', !deptId);
+
+            if (deptId) {
+                $.get('{% url "tpir:tpir_load_facilities" %}', {department_id: deptId})
+                    .done(function(data) {
+                        $('#id_facility').html(data.facilities);
+                    })
+                    .fail(function() {
+                        console.error('Error loading facilities');
+                    });
+            } else {
+                $('#id_facility').html('<option value="">---------</option>');
+            }
+        });
+
+        // Обработка добавления нового объекта
+        $('#facilityForm').submit(function(e) {
+            e.preventDefault();
+            const formData = {
+                name: $('#facilityName').val(),
+                department_id: $('#facilityDepartmentId').val(),
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            };
+
+            $.post('{% url "tpir:tpir_add_facility" %}', formData)
+                .done(function(data) {
+                    if (data.success) {
+                        $('#id_facility').html(data.facilities).val(data.selected_facility_id);
+                        $('#facilityModal').hide();
+                        $('#facilityName').val('');
+                    } else {
+                        alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+                    }
+                })
+                .fail(function() {
+                    alert('Ошибка при добавлении объекта');
+                });
+        });
+    });
+    </script>
 {% endblock %}
+
 {% block buttons %}
     <div class="actions">
         <!-- Кнопка "Назад к списку отчётов" -->

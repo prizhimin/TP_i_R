@@ -33,4 +33,7 @@ urlpatterns = [
     # path('facilities/add/', views.add_facility, name='add_facility'),
     # path('facilities/<int:facility_id>/edit/', views.edit_facility, name='edit_facility'),
     # path('facilities/<int:facility_id>/toggle/', views.toggle_facility_status, name='toggle_facility_status'),
+
+    path('ajax/load-facilities/', views.load_facilities, name='tpir_load_facilities'),
+    path('ajax/add-facility/', views.add_facility, name='tpir_add_facility'),
 ]

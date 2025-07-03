@@ -9,12 +9,68 @@ from commondata.forms import DateForm, DateSelectionForm, DateRangeForm
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
-from .models import Tpir, TpirUserDepartment
+from .models import Tpir, TpirUserDepartment, TpirFacility
 
+from django.http import JsonResponse
+from django.template.loader import render_to_string
+from django.views.decorators.csrf import csrf_exempt
 
 
 def get_date_for_report():
     return timezone.now().strftime('%d.%m.%Y')
+
+
+@login_required
+def load_facilities(request):
+    department_id = request.GET.get('department_id')
+    if not department_id:
+        return JsonResponse({'error': 'Department ID is required'}, status=400)
+
+    facilities = TpirFacility.objects.filter(
+        department_id=department_id,
+        is_active=True
+    ).order_by('name')
+
+    return JsonResponse({
+        'facilities': render_to_string(
+            'tpir/facility_options.html',
+            {'items': facilities}
+        )
+    })
+
+
+@csrf_exempt
+@login_required
+def add_facility(request):
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        department_id = request.POST.get('department_id')
+
+        if not name or not department_id:
+            return JsonResponse({'error': 'Необходимо указать название и филиал'}, status=400)
+
+        try:
+            facility = TpirFacility.objects.create(
+                name=name,
+                department_id=department_id
+            )
+            facilities = TpirFacility.objects.filter(
+                department_id=department_id,
+                is_active=True
+            ).order_by('name')
+
+            return JsonResponse({
+                'success': True,
+                'facility_id': facility.id,
+                'facilities': render_to_string(
+                    'tpir/facility_options.html',
+                    {'items': facilities}
+                ),
+                'selected_facility_id': facility.id
+            })
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    return JsonResponse({'error': 'Invalid request'}, status=400)
 
 
 @login_required

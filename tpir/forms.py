@@ -5,12 +5,51 @@ from django.utils import timezone
 
 
 class TpirForm(forms.ModelForm):
+    # def __init__(self, *args, **kwargs):
+    #     # Извлекаем user перед вызовом super()
+    #     self.user = kwargs.pop('user', None)
+    #     super().__init__(*args, **kwargs)
+    #
+    #     # Если user передан - фильтруем филиалы
+    #     if self.user:
+    #         user_departments = TpirUserDepartment.objects.filter(user=self.user)
+    #         department_ids = user_departments.values_list('department__id', flat=True)
+    #         self.fields['department'].queryset = Department.objects.filter(
+    #             id__in=department_ids
+    #         ).order_by('name')
+    #
+    #     # Обновляем queryset для объектов
+    #     if 'department' in self.data:
+    #         try:
+    #             department_id = int(self.data.get('department'))
+    #             self.fields['facility'].queryset = TpirFacility.objects.filter(
+    #                 department_id=department_id,
+    #                 is_active=True
+    #             ).order_by('name')
+    #         except (ValueError, TypeError):
+    #             pass
+    #     elif self.instance.pk:
+    #         self.fields['facility'].queryset = self.instance.department.tpirfacility_set.filter(
+    #             is_active=True
+    #         ).order_by('name')
+    #     else:
+    #         self.fields['facility'].queryset = TpirFacility.objects.none()
+    #
+    #     # Настройка полей
+    #     self.fields['existing_shortcomings'].required = False
+    #     self.fields['directive_date'].input_formats = ['%d.%m.%Y']
+    #     self.fields['directive_end_date'].input_formats = ['%d.%m.%Y']
+    #     self.fields['directive_date'].widget = forms.DateInput(attrs={'class': 'datepicker'})
+    #     self.fields['directive_end_date'].widget = forms.DateInput(attrs={'class': 'datepicker'})
+    #
+    #     if self.instance.pk:
+    #         self.fields['directive_number'].widget.attrs['readonly'] = True
+    #         self.fields['directive_date'].widget.attrs['readonly'] = True
     def __init__(self, *args, **kwargs):
-        # Извлекаем user перед вызовом super()
-        self.user = kwargs.pop('user', None)
+        self.user = kwargs.pop('user', None)  # Добавляем прием пользователя
         super().__init__(*args, **kwargs)
 
-        # Если user передан - фильтруем филиалы
+        # Фильтрация филиалов для пользователя
         if self.user:
             user_departments = TpirUserDepartment.objects.filter(user=self.user)
             department_ids = user_departments.values_list('department__id', flat=True)
@@ -18,7 +57,7 @@ class TpirForm(forms.ModelForm):
                 id__in=department_ids
             ).order_by('name')
 
-        # Обновляем queryset для объектов
+        # Динамический queryset для объектов
         if 'department' in self.data:
             try:
                 department_id = int(self.data.get('department'))
@@ -35,16 +74,19 @@ class TpirForm(forms.ModelForm):
         else:
             self.fields['facility'].queryset = TpirFacility.objects.none()
 
-        # Настройка полей
-        self.fields['existing_shortcomings'].required = False
-        self.fields['directive_date'].input_formats = ['%d.%m.%Y']
-        self.fields['directive_end_date'].input_formats = ['%d.%m.%Y']
+        # Добавляем классы для стилизации как в отчете по охране
+        self.fields['facility'].widget.attrs.update({
+            'style': 'width: calc(100% - 150px); display: inline-block; vertical-align: middle;'
+        })
+        self.fields['directive_executive'].widget.attrs.update({
+            'style': 'width: calc(100% - 150px); display: inline-block; vertical-align: middle;'
+        })
+        self.fields['remedial_action'].widget.attrs.update({
+            'style': 'width: calc(100% - 150px); display: inline-block; vertical-align: middle;'
+        })
         self.fields['directive_date'].widget = forms.DateInput(attrs={'class': 'datepicker'})
         self.fields['directive_end_date'].widget = forms.DateInput(attrs={'class': 'datepicker'})
 
-        if self.instance.pk:
-            self.fields['directive_number'].widget.attrs['readonly'] = True
-            self.fields['directive_date'].widget.attrs['readonly'] = True
 
     class Meta:
         model = Tpir
