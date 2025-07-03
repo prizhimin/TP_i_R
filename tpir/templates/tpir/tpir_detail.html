@@ -87,21 +87,29 @@
     </div>
 
     <!-- Вложения -->
-    {% if has_attachments %}
     <div class="report-section">
         <h2>Прикрепленные файлы</h2>
-        <ul>
-            {% for file in tpir.attached_files.all %}
-            <li>
-{#                    <a href="{% url 'tpir:download_file' file_id=file.id %}">#}
-                    {{ file.file.name }}
-{#                    </a>#}
-                ({{ file.uploaded_at|date:"d.m.Y H:i" }})
-            </li>
-            {% endfor %}
-        </ul>
+        {% if tpir.has_attachments %}
+            <ul>
+                {% for file in tpir.attached_files.all %}
+                <li>
+                    <a href="{% url 'tpir:download_file' file.id %}">
+                        {{ file.get_filename }}
+                    </a>
+                    ({{ file.uploaded_at|date:"d.m.Y H:i" }})
+                </li>
+                {% endfor %}
+            </ul>
+            <a href="{% url 'tpir:manage_attach' tpir.id %}" class="btn btn-primary">
+                Управление вложениями
+            </a>
+        {% else %}
+            <p>Нет прикрепленных файлов</p>
+            <a href="{% url 'tpir:add_file' tpir.id %}" class="btn btn-primary">
+                Добавить файлы
+            </a>
+        {% endif %}
     </div>
-    {% endif %}
 
     <!-- Дополнительная информация -->
     <h2>Дополнительно</h2>

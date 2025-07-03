@@ -3,17 +3,28 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
+from django.core.cache import cache
+
 from .forms import TpirForm
 from commondata.forms import DateForm, DateSelectionForm, DateRangeForm
 
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
-from .models import Tpir, TpirUserDepartment, TpirFacility, TpirFinance
+from .models import Tpir, TpirUserDepartment, TpirFacility, TpirFinance, TpirAttachedFile
 
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from django.views.decorators.csrf import csrf_exempt
+
+from django.http import FileResponse, JsonResponse
+from django.conf import settings
+import os
+import zipfile
+from tempfile import NamedTemporaryFile
+from contextlib import contextmanager
+import shutil
+from .forms import TpirAttachedFileForm
 
 
 def get_date_for_report():
@@ -261,3 +272,131 @@ def tpir_detail(request, pk: int):
 
     return render(request, 'tpir/tpir_detail.html', context)
 
+
+@contextmanager
+def temp_zipfile():
+    """Контекстный менеджер для временного ZIP-файла"""
+    tmp = NamedTemporaryFile(suffix='.zip', delete=False)
+    try:
+        yield tmp
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+
+
+@login_required
+def add_file(request, pk):
+    tpir = get_object_or_404(Tpir, pk=pk)
+
+    if request.method == 'POST':
+        form = TpirAttachedFileForm(request.POST, request.FILES)
+        if form.is_valid():
+            files = request.FILES.getlist('file_field')
+            uploaded_files = []
+            errors = []
+
+            for file in files:
+                try:
+                    # Создаем запись в базе и сохраняем файл
+                    attached_file = TpirAttachedFile.objects.create(
+                        tpir=tpir,
+                        file=file
+                    )
+                    uploaded_files.append(attached_file)
+                except Exception as e:
+                    filename = file.name[:50] + '...' if len(file.name) > 50 else file.name
+                    errors.append(f'Ошибка при загрузке файла "{filename}": {str(e)}')
+
+            # Обновляем кэш
+            cache_key = f'tpir_{pk}_has_attachments'
+            cache.delete(cache_key)
+
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                if errors:
+                    return JsonResponse({'success': False, 'errors': errors}, status=400)
+                return JsonResponse({'success': True})
+
+            if errors:
+                return render(request, 'tpir/attach_file_form.html', {
+                    'form': form,
+                    'tpir': tpir,
+                    'upload_errors': errors
+                })
+
+            return redirect('tpir:manage_attach', pk=pk)
+    else:
+        form = TpirAttachedFileForm()
+
+    return render(request, 'tpir/attach_file_form.html', {
+        'form': form,
+        'tpir': tpir
+    })
+
+
+@login_required
+def delete_file(request, file_id):
+    attached_file = get_object_or_404(TpirAttachedFile, id=file_id)
+    tpir_id = attached_file.tpir.id
+
+    if request.method == 'POST':
+        file_path = os.path.join(settings.MEDIA_ROOT, str(attached_file.file))
+        attached_file.delete()
+
+        # Очищаем кэш
+        cache_key = f'tpir_{tpir_id}_has_attachments'
+        cache.delete(cache_key)
+
+        # Удаляем физический файл
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+        return redirect('tpir:manage_attach', pk=tpir_id)
+
+    return render(request, 'tpir/delete_file_confirm.html', {
+        'attached_file': attached_file,
+        'short_name': os.path.basename(attached_file.file.name)
+    })
+
+
+@login_required
+def download_file(request, file_id):
+    attached_file = get_object_or_404(TpirAttachedFile, id=file_id)
+    file_path = os.path.join(settings.MEDIA_ROOT, str(attached_file.file))
+    response = FileResponse(open(file_path, 'rb'), as_attachment=True)
+    return response
+
+
+@login_required
+def manage_attach(request, pk):
+    tpir = get_object_or_404(Tpir.objects.prefetch_related('attached_files'), pk=pk)
+    attached_files = tpir.attached_files.all()
+
+    return render(request, 'tpir/manage_attach.html', {
+        'tpir': tpir,
+        'attached_files': attached_files
+    })
+
+
+@login_required
+def download_attaches_zip(request, pk):
+    tpir = get_object_or_404(Tpir, pk=pk)
+    if not tpir.has_attachments():
+        return HttpResponse('Нет файлов для скачивания')
+
+    attached_files = tpir.attached_files.all()
+
+    with temp_zipfile() as tmp:
+        with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for attached_file in attached_files:
+                file_path = os.path.join(settings.MEDIA_ROOT, str(attached_file.file))
+                zipf.write(file_path, os.path.basename(file_path))
+
+        response = FileResponse(
+            open(tmp.name, 'rb'),
+            as_attachment=True,
+            filename=f'Attachments_TPIR_{pk}.zip'
+        )
+        response['Content-Type'] = 'application/zip'
+        return response

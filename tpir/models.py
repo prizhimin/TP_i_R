@@ -11,7 +11,7 @@ import os
 
 def tpir_files_directory_path(instance, filename):
     """Генерирует путь для сохранения прикрепленных файлов"""
-    return f'tpir_files/{instance.tpir.id}/{filename}'
+    return f'tpir/{instance.tpir.id}/{filename}'
 
 
 class TpirFacility(models.Model):
@@ -241,6 +241,9 @@ class TpirAttachedFile(models.Model):
     def delete(self, *args, **kwargs):
         cache.delete(f'tpir_{self.tpir_id}_has_attachments')
         super().delete(*args, **kwargs)
+
+    def get_filename(self):
+        return os.path.basename(self.file.name)
 
 
 class TpirFinance(models.Model):

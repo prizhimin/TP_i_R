@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block styles %}
+<style>
+    table {
+        width: 100%;
+    }
+
+    th:first-child, td:first-child {
+        width: 85%;
+    }
+
+    th:last-child, td:last-child {
+        width: 15%;
+    }
+    main {
+        overflow: scroll;
+    }
+</style>
+{% endblock %}
+{% block content %}
+<h1>Управление вложениями для отчета ТПИР: {{ tpir.directive_number }}</h1>
+<h2>Список вложений</h2>
+<div class="container form-group">
+    <table>
+        <thead>
+            <tr>
+                <th>Имя файла</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in attached_files %}
+                <tr>
+                    <td>
+                        <a href="{% url 'tpir:download_file' file.id %}">{{ file.get_filename  }}</a>
+                    </td>
+                    <td>
+                        <a href="{% url 'tpir:delete_file' file.id %}">
+                            <button type="button" class="">Удалить</button>
+                        </a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="2">Нет вложений</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+{% block buttons %}
+    <div class="actions">
+        <!-- Кнопка "Добавить вложение" -->
+        <a href="{% url 'tpir:add_file' tpir.id %}" class="action-link">
+            <button type="button" class="">Добавить вложение</button>
+        </a>
+        <!-- Кнопка "Сохранить все вложения в zip-файле" (только если есть вложения) -->
+        {% if attached_files %}
+            <a href="{% url 'tpir:download_attaches_zip' tpir.id %}" class="action-link">
+                <button type="button" class="">Сохранить все вложения в zip-файле</button>
+            </a>
+        {% endif %}
+
+        <!-- Кнопка "Вернуться к отчету" -->
+        <a href="{% url 'tpir:tpir_detail' tpir.id %}">
+            <button type="button" class="">Вернуться к отчету</button>
+        </a>
+        <!-- Кнопка "Показать все отчеты" -->
+        <a href="{% url 'tpir:tpir_list' %}" class="action-link">
+            <button type="button" class="">Показать все отчеты</button>
+        </a>
+    </div>
+{% endblock %}

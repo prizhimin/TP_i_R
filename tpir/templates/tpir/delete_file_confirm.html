@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Подтверждение удаления файла</h1>
+<p>Вы уверены, что хотите удалить файл "{{ short_name }}"?</p>
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Удалить</button>
+    <a href="{% url 'tpir:manage_attach' attached_file.tpir.id %}" class="btn btn-secondary">Отмена</a>
+</form>
+{% endblock %}

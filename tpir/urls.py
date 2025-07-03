@@ -36,4 +36,11 @@ urlpatterns = [
 
     path('ajax/load-facilities/', views.load_facilities, name='tpir_load_facilities'),
     path('ajax/add-facility/', views.add_facility, name='tpir_add_facility'),
+
+    # Файлы
+    path('<int:pk>/add_file/', views.add_file, name='add_file'),
+    path('file/<int:file_id>/delete/', views.delete_file, name='delete_file'),
+    path('file/<int:file_id>/download/', views.download_file, name='download_file'),
+    path('<int:pk>/manage_attach/', views.manage_attach, name='manage_attach'),
+    path('<int:pk>/download_zip/', views.download_attaches_zip, name='download_attaches_zip'),
 ]
