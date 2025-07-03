@@ -7,16 +7,6 @@
         width: 100%;
         border-collapse: collapse;
     }
-    {#th:first-child, td:first-child {#}
-    {#    width: 35%;#}
-    {#    padding: 8px;#}
-    {#    border: 1px solid #ddd;#}
-    {#}#}
-    {#th:last-child, td:last-child {#}
-    {#    width: 65%;#}
-    {#    padding: 8px;#}
-    {#    border: 1px solid #ddd;#}
-    {#}#}
     textarea {
         width: 100%;
         box-sizing: border-box;
@@ -26,10 +16,9 @@
         resize: vertical;
     }
     /* Стиль для всех полей ввода и выпадающих списков */
-    input[type="text"], select {
+    input[type="text"], select, input[type="number"] {
         width: 100%;
         box-sizing: border-box;
-        {#padding: 8px;#}
         border: 1px solid #ccc;
         border-radius: 4px;
     }
@@ -45,7 +34,26 @@
         background-color: #f1f1f1;
     }
 
-    /* Стили модального окна */
+    /* Стили для финансовых записей */
+    .finance-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 5px;
+    }
+    .finance-year {
+        width: 80px;
+    }
+    .finance-amount {
+        flex-grow: 1;
+    }
+    .finance-actions {
+        width: 100px;
+    }
+    #financeContainer {
+        margin-top: 10px;
+    }
+
+    /* Остальные стили остаются без изменений */
     .modal {
         display: none;
         position: fixed;
@@ -77,8 +85,6 @@
         text-decoration: none;
         cursor: pointer;
     }
-
-    /* Стили кнопок */
     .btn-primary {
         background-color: #007bff;
         color: white;
@@ -103,7 +109,7 @@
 {% block content %}
     <h1>Редактирование записи ТПИР</h1>
     <div class="container report-list">
-        <form method="post" class="form-group">
+        <form method="post" class="form-group" id="tpirForm">
             {% csrf_token %}
             <div class="container">
                 <table>
@@ -112,7 +118,6 @@
                             <th>{{ field.label_tag }}</th>
                             <td>
                                 {{ field }}
-                                <!-- Добавляем кнопку только для поля facility -->
                                 {% if field.name == 'facility' %}
                                 <button type="button" id="addFacilityBtn" class="btn-primary"
                                         {% if not form.department.value %}disabled{% endif %}>
@@ -120,7 +125,6 @@
                                 </button>
                                 {% endif %}
 
-                                <!-- Вывод ошибок -->
                                 {% if field.errors %}
                                 <div class="error-message">
                                     {% for error in field.errors %}
@@ -131,6 +135,53 @@
                             </td>
                         </tr>
                     {% endfor %}
+
+{#                    <!-- Секция финансовых данных -->#}
+{#                    <tr>#}
+{#                        <th>Финансирование:</th>#}
+{#                        <td>#}
+{#                            <div id="financeContainer">#}
+{#                                {% for finance in tpir.finance_records.all %}#}
+{#                                <div class="finance-row" id="finance_{{ finance.id }}">#}
+{#                                    <input type="number" name="finance_year_{{ finance.id }}"#}
+{#                                           class="finance-year" value="{{ finance.year }}"#}
+{#                                           placeholder="Год" min="2025" required>#}
+{#                                    <input type="number" name="finance_amount_{{ finance.id }}"#}
+{#                                           class="finance-amount" value="{{ finance.amount }}"#}
+{#                                           placeholder="Сумма" step="0.1" min="0" required>#}
+{#                                    <button type="button" class="btn-primary finance-actions"#}
+{#                                            onclick="removeFinanceRow('finance_{{ finance.id }}')">Удалить</button>#}
+{#                                </div>#}
+{#                                {% endfor %}#}
+{#                            </div>#}
+{#                            <button type="button" id="addFinanceBtn" class="btn-primary">#}
+{#                                Добавить год финансирования#}
+{#                            </button>#}
+{#                        </td>#}
+{#                    </tr>#}
+                        <!-- Секция финансовых данных -->
+                        <tr>
+                            <th>Финансирование:</th>
+                            <td>
+                                <div id="financeContainer">
+                                    {% for finance in tpir.finance_records.all %}
+                                    <div class="finance-row" id="finance_{{ finance.id }}">
+                                        <input type="number" name="finance_year_{{ finance.id }}"
+                                               class="finance-year" value="{{ finance.year }}"
+                                               placeholder="Год" min="2025" required>
+                                        <input type="number" name="finance_amount_{{ finance.id }}"
+                                               class="finance-amount" value="{{ finance.amount|stringformat:'g' }}"
+                                               placeholder="Сумма" step="0.1" min="0" required>
+                                        <button type="button" class="btn-primary finance-actions"
+                                                onclick="removeFinanceRow('finance_{{ finance.id }}')">Удалить</button>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <button type="button" id="addFinanceBtn" class="btn-primary">
+                                    Добавить год финансирования
+                                </button>
+                            </td>
+                        </tr>
                 </table>
             </div>
             <div class="actions" style="text-align: center; margin-top: 10px">
@@ -217,17 +268,53 @@
                     alert('Ошибка при добавлении объекта');
                 });
         });
+
+        // Управление финансовыми записями
+        let financeCounter = {{ tpir.finance_records.count }};
+
+        // Функция добавления новой финансовой записи
+        function addFinanceRow(year = '', amount = '') {
+            const rowId = `finance_new_${financeCounter++}`;
+            const rowHtml = `
+                <div class="finance-row" id="${rowId}">
+                    <input type="number" name="finance_year_${rowId}"
+                           class="finance-year" value="${year}"
+                           placeholder="Год" min="2025" required>
+                    <input type="number" name="finance_amount_${rowId}"
+                           class="finance-amount" value="${amount}"
+                           placeholder="Сумма" step="0.1" min="0" required>
+                    <button type="button" class="btn-primary finance-actions"
+                            onclick="removeFinanceRow('${rowId}')">Удалить</button>
+                </div>
+            `;
+            $('#financeContainer').append(rowHtml);
+        }
+
+        // Функция удаления финансовой записи
+        window.removeFinanceRow = function(rowId) {
+            // Если это существующая запись, добавляем скрытое поле для удаления
+            if (rowId.startsWith('finance_') && !rowId.startsWith('finance_new_')) {
+                const financeId = rowId.replace('finance_', '');
+                $('#financeContainer').append(`
+                    <input type="hidden" name="delete_finance_${financeId}" value="1">
+                `);
+            }
+            $(`#${rowId}`).remove();
+        };
+
+        // Обработчик кнопки добавления финансового года
+        $('#addFinanceBtn').click(function() {
+            addFinanceRow();
+        });
     });
     </script>
 {% endblock %}
 
 {% block buttons %}
     <div class="actions">
-        <!-- Кнопка "Назад к списку отчётов" -->
         <a href="{% url 'tpir:tpir_list' %}" class="action-link">
             <button type="button">Назад к списку отчётов</button>
         </a>
-        <!-- Кнопка "Вернуться на Главную" -->
         <a href="{% url 'dashboard:dashboard' %}" class="action-link">
             <button type="button">Вернуться на Главную</button>
         </a>

@@ -9,7 +9,7 @@ from commondata.forms import DateForm, DateSelectionForm, DateRangeForm
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
-from .models import Tpir, TpirUserDepartment, TpirFacility
+from .models import Tpir, TpirUserDepartment, TpirFacility, TpirFinance
 
 from django.http import JsonResponse
 from django.template.loader import render_to_string
@@ -118,15 +118,74 @@ def tpir_list(request):
     return render(request, 'tpir/tpir_list.html', context)
 
 
+# @login_required
+# def tpir_add(request):
+#     """Добавление нового отчета ТПИР"""
+#     if request.method == 'POST':
+#         form = TpirForm(request.POST)
+#         if form.is_valid():
+#             new_tpir = form.save(commit=False)
+#             new_tpir.created_by = request.user  # Устанавливаем создателя
+#             new_tpir.save()
+#             messages.success(request, 'Отчет успешно добавлен')
+#             return redirect('tpir:tpir_detail', pk=new_tpir.id)
+#     else:
+#         form = TpirForm(user=request.user)
+#
+#     context = {
+#         'form': form,
+#         'title': 'Добавление нового отчета'
+#     }
+#     return render(request, 'tpir/add_tpir.html', context)
+#
+#
+# @login_required
+# def tpir_edit(request, pk):
+#     """Редактирование существующего отчета ТПИР"""
+#     tpir = get_object_or_404(Tpir, pk=pk)
+#
+#     if request.method == 'POST':
+#         form = TpirForm(request.POST, instance=tpir)
+#         # form = TpirForm(request.POST, instance=tpir, user=request.user)
+#         if form.is_valid():
+#             updated_tpir = form.save(commit=False)
+#             updated_tpir.updated_by = request.user  # Устанавливаем редактора
+#             updated_tpir.save()
+#             messages.success(request, 'Отчет успешно обновлен')
+#             return redirect('tpir:tpir_detail', pk=pk)
+#     else:
+#         form = TpirForm(instance=tpir, user=request.user)
+#
+#     context = {
+#         'form': form,
+#         'title': f'Редактирование отчета #{tpir.id}',
+#         'tpir': tpir
+#     }
+#     return render(request, 'tpir/edit_tpir.html', context)
 @login_required
 def tpir_add(request):
     """Добавление нового отчета ТПИР"""
     if request.method == 'POST':
-        form = TpirForm(request.POST)
+        form = TpirForm(request.POST, user=request.user)
         if form.is_valid():
             new_tpir = form.save(commit=False)
-            new_tpir.created_by = request.user  # Устанавливаем создателя
+            new_tpir.created_by = request.user
             new_tpir.save()
+
+            # Обработка финансовых данных
+            for key, value in request.POST.items():
+                if key.startswith('finance_year_'):
+                    prefix = key.replace('finance_year_', '')
+                    year = value
+                    amount = request.POST.get(f'finance_amount_{prefix}', 0)
+
+                    if year and amount:
+                        TpirFinance.objects.create(
+                            report=new_tpir,
+                            year=year,
+                            amount=amount
+                        )
+
             messages.success(request, 'Отчет успешно добавлен')
             return redirect('tpir:tpir_detail', pk=new_tpir.id)
     else:
@@ -137,6 +196,79 @@ def tpir_add(request):
         'title': 'Добавление нового отчета'
     }
     return render(request, 'tpir/add_tpir.html', context)
+
+
+@login_required
+def tpir_edit(request, pk):
+    """Редактирование существующего отчета ТПИР"""
+    # tpir = get_object_or_404(Tpir, pk=pk)
+    tpir = get_object_or_404(
+        Tpir.objects.select_related(
+            'department',
+            'facility',
+            'created_by',
+            'updated_by'
+        ).prefetch_related(
+            'finance_records'
+        ),
+        pk=pk
+    )
+    if request.method == 'POST':
+        form = TpirForm(request.POST, instance=tpir, user=request.user)
+        if form.is_valid():
+            updated_tpir = form.save(commit=False)
+            updated_tpir.updated_by = request.user
+            updated_tpir.save()
+
+            # Обработка финансовых данных
+            existing_finances = {str(f.id): f for f in tpir.finance_records.all()}
+
+            for key, value in request.POST.items():
+                if key.startswith('finance_year_'):
+                    prefix = key.replace('finance_year_', '')
+                    year = value
+                    amount = request.POST.get(f'finance_amount_{prefix}', 0)
+
+                    if year and amount:
+                        # Если это существующая запись (по ID)
+                        if prefix.isdigit():
+                            finance_id = prefix
+                            if finance_id in existing_finances:
+                                finance = existing_finances[finance_id]
+                                finance.year = year
+                                finance.amount = amount
+                                finance.save()
+                                del existing_finances[finance_id]
+                        else:
+                            # Новая запись
+                            TpirFinance.objects.create(
+                                report=tpir,
+                                year=year,
+                                amount=amount
+                            )
+
+            # Удаление отмеченных записей
+            for key in request.POST:
+                if key.startswith('delete_finance_'):
+                    finance_id = key.replace('delete_finance_', '')
+                    if finance_id in existing_finances:
+                        existing_finances[finance_id].delete()
+
+            # Удаление оставшихся необработанных записей (если есть)
+            for finance in existing_finances.values():
+                finance.delete()
+
+            messages.success(request, 'Отчет успешно обновлен')
+            return redirect('tpir:tpir_detail', pk=pk)
+    else:
+        form = TpirForm(instance=tpir, user=request.user)
+
+    context = {
+        'form': form,
+        'title': f'Редактирование отчета #{tpir.id}',
+        'tpir': tpir
+    }
+    return render(request, 'tpir/edit_tpir.html', context)
 
 
 @login_required
@@ -179,27 +311,3 @@ def tpir_detail(request, pk: int):
 
     return render(request, 'tpir/tpir_detail.html', context)
 
-
-@login_required
-def tpir_edit(request, pk):
-    """Редактирование существующего отчета ТПИР"""
-    tpir = get_object_or_404(Tpir, pk=pk)
-
-    if request.method == 'POST':
-        form = TpirForm(request.POST, instance=tpir)
-        # form = TpirForm(request.POST, instance=tpir, user=request.user)
-        if form.is_valid():
-            updated_tpir = form.save(commit=False)
-            updated_tpir.updated_by = request.user  # Устанавливаем редактора
-            updated_tpir.save()
-            messages.success(request, 'Отчет успешно обновлен')
-            return redirect('tpir:tpir_detail', pk=pk)
-    else:
-        form = TpirForm(instance=tpir, user=request.user)
-
-    context = {
-        'form': form,
-        'title': f'Редактирование отчета #{tpir.id}',
-        'tpir': tpir
-    }
-    return render(request, 'tpir/edit_tpir.html', context)
