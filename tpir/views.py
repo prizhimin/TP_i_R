@@ -165,6 +165,90 @@ def tpir_add(request):
 
 
 @login_required
+# def tpir_edit(request, pk):
+#     """Редактирование существующего отчета ТПИР"""
+#     tpir = get_object_or_404(
+#         Tpir.objects.select_related(
+#             'department',
+#             'facility',
+#             'created_by',
+#             'updated_by'
+#         ).prefetch_related(
+#             'finance_records',
+#             'attached_files'
+#         ),
+#         pk=pk
+#     )
+#
+#     if request.method == 'POST':
+#         form = TpirForm(request.POST, instance=tpir, user=request.user)
+#         if form.is_valid():
+#             updated_tpir = form.save(commit=False)
+#             updated_tpir.updated_by = request.user
+#             updated_tpir.save()
+#
+#             # Обработка финансовых данных
+#             existing_finances = {str(f.id): f for f in tpir.finance_records.all()}
+#             existing_years = {f.year for f in existing_finances.values()}
+#
+#             for key, value in request.POST.items():
+#                 if key.startswith('finance_year_'):
+#                     prefix = key.replace('finance_year_', '')
+#                     year = value
+#                     amount = request.POST.get(f'finance_amount_{prefix}', 0)
+#
+#                     if year and amount:
+#                         try:
+#                             year_int = int(year)
+#                             # Если это существующая запись (по ID)
+#                             if prefix.isdigit() and prefix in existing_finances:
+#                                 finance = existing_finances[prefix]
+#                                 finance.year = year_int
+#                                 finance.amount = amount
+#                                 finance.save()
+#                                 del existing_finances[prefix]
+#                                 existing_years.discard(year_int)
+#                             else:
+#                                 # Для новой записи проверяем, нет ли дубликата года
+#                                 if year_int in existing_years:
+#                                     messages.error(request,
+#                                                    f'Финансовая запись для {year_int} года уже существует. '
+#                                                    'Измените существующую запись вместо создания новой.')
+#                                     continue
+#
+#                                 # Создаем новую запись
+#                                 TpirFinance.objects.create(
+#                                     report=tpir,
+#                                     year=year_int,
+#                                     amount=amount
+#                                 )
+#                                 existing_years.add(year_int)
+#                         except ValueError:
+#                             messages.error(request, f'Некорректное значение года: {year}')
+#                         except IntegrityError as e:
+#                             messages.error(request,
+#                                            f'Ошибка при сохранении данных для {year} года: {str(e)}')
+#                             continue
+#
+#             # Удаление отмеченных записей
+#             for key in request.POST:
+#                 if key.startswith('delete_finance_'):
+#                     finance_id = key.replace('delete_finance_', '')
+#                     if finance_id in existing_finances:
+#                         existing_finances[finance_id].delete()
+#
+#             messages.success(request, 'Отчет успешно обновлен')
+#             return redirect('tpir:tpir_detail', pk=pk)
+#     else:
+#         form = TpirForm(instance=tpir, user=request.user)
+#
+#     context = {
+#         'form': form,
+#         'title': f'Редактирование отчета #{tpir.id}',
+#         'tpir': tpir  # Передаем существующий отчет
+#     }
+#     return render(request, 'tpir/edit_tpir.html', context)
+@login_required
 def tpir_edit(request, pk):
     """Редактирование существующего отчета ТПИР"""
     tpir = get_object_or_404(
@@ -183,69 +267,62 @@ def tpir_edit(request, pk):
     if request.method == 'POST':
         form = TpirForm(request.POST, instance=tpir, user=request.user)
         if form.is_valid():
-            updated_tpir = form.save(commit=False)
-            updated_tpir.updated_by = request.user
-            updated_tpir.save()
+            try:
+                updated_tpir = form.save(commit=False)
+                updated_tpir.updated_by = request.user
+                updated_tpir.save()
 
-            # Обработка финансовых данных
-            existing_finances = {str(f.id): f for f in tpir.finance_records.all()}
-            existing_years = {f.year for f in existing_finances.values()}
+                # Обработка финансовых данных
+                existing_finances = {str(f.id): f for f in tpir.finance_records.all()}
+                existing_years = {f.year for f in existing_finances.values()}
 
-            for key, value in request.POST.items():
-                if key.startswith('finance_year_'):
-                    prefix = key.replace('finance_year_', '')
-                    year = value
-                    amount = request.POST.get(f'finance_amount_{prefix}', 0)
+                for key, value in request.POST.items():
+                    if key.startswith('finance_year_'):
+                        prefix = key.replace('finance_year_', '')
+                        year = value
+                        amount = request.POST.get(f'finance_amount_{prefix}', 0)
 
-                    if year and amount:
-                        try:
-                            year_int = int(year)
-                            # Если это существующая запись (по ID)
-                            if prefix.isdigit() and prefix in existing_finances:
-                                finance = existing_finances[prefix]
-                                finance.year = year_int
-                                finance.amount = amount
-                                finance.save()
-                                del existing_finances[prefix]
-                                existing_years.discard(year_int)
-                            else:
-                                # Для новой записи проверяем, нет ли дубликата года
-                                if year_int in existing_years:
-                                    messages.error(request,
-                                                   f'Финансовая запись для {year_int} года уже существует. '
-                                                   'Измените существующую запись вместо создания новой.')
-                                    continue
+                        if year and amount:
+                            try:
+                                year_int = int(year)
+                                amount_float = float(amount)
 
-                                # Создаем новую запись
-                                TpirFinance.objects.create(
-                                    report=tpir,
-                                    year=year_int,
-                                    amount=amount
-                                )
-                                existing_years.add(year_int)
-                        except ValueError:
-                            messages.error(request, f'Некорректное значение года: {year}')
-                        except IntegrityError as e:
-                            messages.error(request,
-                                           f'Ошибка при сохранении данных для {year} года: {str(e)}')
-                            continue
+                                # Обработка существующей записи
+                                if prefix.isdigit() and prefix in existing_finances:
+                                    finance = existing_finances[prefix]
+                                    finance.year = year_int
+                                    finance.amount = amount_float
+                                    finance.save()
+                                    del existing_finances[prefix]
+                                else:
+                                    # Обработка новой записи
+                                    TpirFinance.objects.create(
+                                        report=tpir,
+                                        year=year_int,
+                                        amount=amount_float
+                                    )
 
-            # Удаление отмеченных записей
-            for key in request.POST:
-                if key.startswith('delete_finance_'):
-                    finance_id = key.replace('delete_finance_', '')
-                    if finance_id in existing_finances:
-                        existing_finances[finance_id].delete()
+                            except (ValueError, IntegrityError):
+                                continue
 
-            messages.success(request, 'Отчет успешно обновлен')
-            return redirect('tpir:tpir_detail', pk=pk)
+                # Удаление отмеченных записей
+                for key in request.POST:
+                    if key.startswith('delete_finance_'):
+                        finance_id = key.replace('delete_finance_', '')
+                        if finance_id in existing_finances:
+                            existing_finances[finance_id].delete()
+
+                return redirect('tpir:tpir_detail', pk=pk)
+
+            except Exception:
+                pass  # Ошибки обрабатываются через форму
     else:
         form = TpirForm(instance=tpir, user=request.user)
 
     context = {
         'form': form,
         'title': f'Редактирование отчета #{tpir.id}',
-        'tpir': tpir  # Передаем существующий отчет
+        'tpir': tpir
     }
     return render(request, 'tpir/edit_tpir.html', context)
 
