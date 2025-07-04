@@ -19,8 +19,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
 from commondata.forms import DateForm
-from .forms import TpirAttachedFileForm
-from .forms import TpirForm
+from .forms import TpirAttachedFileForm, TpirForm
 from .models import Tpir, TpirUserDepartment, TpirFacility, TpirFinance, TpirAttachedFile
 
 
