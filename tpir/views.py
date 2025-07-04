@@ -1,4 +1,5 @@
 from django.core.exceptions import PermissionDenied
+from django.db import IntegrityError
 from django.http import HttpResponse
 from django.shortcuts import redirect, get_object_or_404
 from django.contrib import messages
@@ -188,6 +189,7 @@ def tpir_edit(request, pk):
 
             # Обработка финансовых данных
             existing_finances = {str(f.id): f for f in tpir.finance_records.all()}
+            existing_years = {f.year for f in existing_finances.values()}  # Собираем существующие года
 
             for key, value in request.POST.items():
                 if key.startswith('finance_year_'):
@@ -196,21 +198,63 @@ def tpir_edit(request, pk):
                     amount = request.POST.get(f'finance_amount_{prefix}', 0)
 
                     if year and amount:
-                        # Если это существующая запись (по ID)
-                        if prefix.isdigit() and prefix in existing_finances:
-                            finance = existing_finances[prefix]
-                            finance.year = year
-                            finance.amount = amount
-                            finance.save()
-                            del existing_finances[prefix]
-                        else:
-                            # Новая запись
-                            # Вот тут Intergrity Error
-                            TpirFinance.objects.create(
-                                report=tpir,
-                                year=year,
-                                amount=amount
-                            )
+                        try:
+                            year_int = int(year)
+                            # Если это существующая запись (по ID)
+                            if prefix.isdigit() and prefix in existing_finances:
+                                finance = existing_finances[prefix]
+                                finance.year = year_int
+                                finance.amount = amount
+                                finance.save()
+                                del existing_finances[prefix]
+                                existing_years.discard(year_int)  # Удаляем год из отслеживаемых
+                            else:
+                                # Для новой записи проверяем, нет ли дубликата года
+                                if year_int in existing_years:
+                                    messages.error(request,
+                                                   f'Финансовая запись для {year_int} года уже существует. '
+                                                   'Измените существующую запись вместо создания новой.')
+                                    continue
+
+                                # Создаем новую запись
+                                TpirFinance.objects.create(
+                                    report=tpir,
+                                    year=year_int,
+                                    amount=amount
+                                )
+                                existing_years.add(year_int)  # Добавляем год в отслеживаемые
+                        except ValueError:
+                            messages.error(request, f'Некорректное значение года: {year}')
+                        except IntegrityError as e:
+                            messages.error(request,
+                                           f'Ошибка при сохранении данных для {year} года: {str(e)}')
+                            continue
+
+            # # Обработка финансовых данных
+            # existing_finances = {str(f.id): f for f in tpir.finance_records.all()}
+            #
+            # for key, value in request.POST.items():
+            #     if key.startswith('finance_year_'):
+            #         prefix = key.replace('finance_year_', '')
+            #         year = value
+            #         amount = request.POST.get(f'finance_amount_{prefix}', 0)
+            #
+            #         if year and amount:
+            #             # Если это существующая запись (по ID)
+            #             if prefix.isdigit() and prefix in existing_finances:
+            #                 finance = existing_finances[prefix]
+            #                 finance.year = year
+            #                 finance.amount = amount
+            #                 finance.save()
+            #                 del existing_finances[prefix]
+            #             else:
+            #                 # Новая запись
+            #                 # Вот тут Intergrity Error
+            #                 TpirFinance.objects.create(
+            #                     report=tpir,
+            #                     year=year,
+            #                     amount=amount
+            #                 )
 
             # Удаление отмеченных записей
             for key in request.POST:
