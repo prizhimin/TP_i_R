@@ -53,7 +53,7 @@
         margin-top: 10px;
     }
 
-    /* Остальные стили остаются без изменений */
+    /* Модальное окно */
     .modal {
         display: none;
         position: fixed;
@@ -84,19 +84,6 @@
         color: black;
         text-decoration: none;
         cursor: pointer;
-    }
-    .btn-primary {
-        background-color: #007bff;
-        color: white;
-        border: none;
-        padding: 8px 12px;
-        border-radius: 4px;
-        cursor: pointer;
-        margin-top: 5px;
-    }
-    .btn-primary:disabled {
-        background-color: #cccccc;
-        cursor: not-allowed;
     }
     .error-message {
         color: red;
@@ -136,52 +123,82 @@
                         </tr>
                     {% endfor %}
 
-{#                    <!-- Секция финансовых данных -->#}
-{#                    <tr>#}
-{#                        <th>Финансирование:</th>#}
-{#                        <td>#}
-{#                            <div id="financeContainer">#}
-{#                                {% for finance in tpir.finance_records.all %}#}
-{#                                <div class="finance-row" id="finance_{{ finance.id }}">#}
-{#                                    <input type="number" name="finance_year_{{ finance.id }}"#}
-{#                                           class="finance-year" value="{{ finance.year }}"#}
-{#                                           placeholder="Год" min="2025" required>#}
-{#                                    <input type="number" name="finance_amount_{{ finance.id }}"#}
-{#                                           class="finance-amount" value="{{ finance.amount }}"#}
-{#                                           placeholder="Сумма" step="0.1" min="0" required>#}
-{#                                    <button type="button" class="btn-primary finance-actions"#}
-{#                                            onclick="removeFinanceRow('finance_{{ finance.id }}')">Удалить</button>#}
-{#                                </div>#}
-{#                                {% endfor %}#}
-{#                            </div>#}
-{#                            <button type="button" id="addFinanceBtn" class="btn-primary">#}
-{#                                Добавить год финансирования#}
-{#                            </button>#}
-{#                        </td>#}
-{#                    </tr>#}
-                        <!-- Секция финансовых данных -->
-                        <tr>
-                            <th>Финансирование:</th>
-                            <td>
-                                <div id="financeContainer">
-                                    {% for finance in tpir.finance_records.all %}
-                                    <div class="finance-row" id="finance_{{ finance.id }}">
-                                        <input type="number" name="finance_year_{{ finance.id }}"
-                                               class="finance-year" value="{{ finance.year }}"
-                                               placeholder="Год" min="2025" required>
-                                        <input type="number" name="finance_amount_{{ finance.id }}"
-                                               class="finance-amount" value="{{ finance.amount|stringformat:'g' }}"
-                                               placeholder="Сумма" step="0.1" min="0" required>
-                                        <button type="button" class="btn-primary finance-actions"
-                                                onclick="removeFinanceRow('finance_{{ finance.id }}')">Удалить</button>
-                                    </div>
-                                    {% endfor %}
+                    <!-- Секция финансовых данных -->
+                    <tr>
+                        <th>Финансирование:</th>
+                        <td>
+                            <div id="financeContainer">
+                                {% for finance in tpir.finance_records.all %}
+                                <div class="finance-row" id="finance_{{ finance.id }}">
+                                    <input type="number" name="finance_year_{{ finance.id }}"
+                                           class="finance-year" value="{{ finance.year }}"
+                                           placeholder="Год" min="2025" required>
+                                    <input type="number" name="finance_amount_{{ finance.id }}"
+                                           class="finance-amount" value="{{ finance.amount|stringformat:'g' }}"
+                                           placeholder="Сумма" step="0.1" min="0" required>
+                                    <button type="button" class="btn-primary finance-actions"
+                                            onclick="removeFinanceRow('finance_{{ finance.id }}')">Удалить</button>
                                 </div>
-                                <button type="button" id="addFinanceBtn" class="btn-primary">
-                                    Добавить год финансирования
-                                </button>
-                            </td>
-                        </tr>
+                                {% endfor %}
+                            </div>
+                            <button type="button" id="addFinanceBtn" class="btn-primary">
+                                Добавить год финансирования
+                            </button>
+                        </td>
+                    </tr>
+
+                    <!-- Секция вложений -->
+                    <tr>
+                        <th>Прикрепленные файлы:</th>
+                        <td>
+                            {% if tpir.has_attachments %}
+                                <table style="width: 100%; margin-bottom: 15px;">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 70%">Имя файла</th>
+                                            <th style="width: 30%">Дата загрузки</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for file in tpir.attached_files.all %}
+                                            <tr>
+                                                <td>
+                                                    <a href="{% url 'tpir:download_file' file.id %}">
+                                                        {{ file.get_filename }}
+                                                    </a>
+                                                </td>
+                                                <td>{{ file.uploaded_at|date:"d.m.Y H:i" }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                                <div style="display: flex; gap: 10px;">
+                                    <a href="{% url 'tpir:manage_attach' tpir.id %}" class="btn-primary" style="text-decoration: none;">
+                                        <button type="button" style="background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s ease; margin-top: 10px;">
+                                            Управление вложениями
+                                        </button>
+                                    </a>
+                                    <a href="{% url 'tpir:add_file' tpir.id %}" class="btn-primary" style="text-decoration: none;">
+                                        <button type="button" style="background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s ease; margin-top: 10px;">
+                                            Добавить файлы
+                                        </button>
+                                    </a>
+                                    {% if tpir.has_attachments %}
+                                    <a href="{% url 'tpir:download_attaches_zip' tpir.id %}" class="btn-primary" style="text-decoration: none;">
+                                        <button type="button" style="background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s ease; margin-top: 10px;">
+                                            Скачать все
+                                        </button>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <p>Нет прикрепленных файлов</p>
+                                <a href="{% url 'tpir:add_file' tpir.id %}" class="btn-primary" style="text-decoration: none;">
+                                    Добавить файлы
+                                </a>
+                            {% endif %}
+                        </td>
+                    </tr>
                 </table>
             </div>
             <div class="actions" style="text-align: center; margin-top: 10px">
