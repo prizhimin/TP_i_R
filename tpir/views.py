@@ -1,31 +1,27 @@
-from django.core.exceptions import PermissionDenied
-from django.db import IntegrityError
-from django.http import HttpResponse
-from django.shortcuts import redirect, get_object_or_404
-from django.contrib import messages
-from django.utils import timezone
-from django.core.cache import cache
-
-from .forms import TpirForm
-from commondata.forms import DateForm, DateSelectionForm, DateRangeForm
-
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
-from .models import Tpir, TpirUserDepartment, TpirFacility, TpirFinance, TpirAttachedFile
-
-from django.http import JsonResponse
-from django.template.loader import render_to_string
-from django.views.decorators.csrf import csrf_exempt
-
-from django.http import FileResponse, JsonResponse
-from django.conf import settings
 import os
 import zipfile
-from tempfile import NamedTemporaryFile
 from contextlib import contextmanager
-import shutil
+from tempfile import NamedTemporaryFile
+
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
+from django.core.exceptions import PermissionDenied
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db import IntegrityError
+from django.http import FileResponse, JsonResponse
+from django.http import HttpResponse
+from django.shortcuts import redirect, get_object_or_404
+from django.shortcuts import render
+from django.template.loader import render_to_string
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+
+from commondata.forms import DateForm
 from .forms import TpirAttachedFileForm
+from .forms import TpirForm
+from .models import Tpir, TpirUserDepartment, TpirFacility, TpirFinance, TpirAttachedFile
 
 
 def get_date_for_report():
@@ -133,6 +129,8 @@ def tpir_list(request):
 @login_required
 def tpir_add(request):
     """Добавление нового отчета ТПИР"""
+    tpir = None  # Инициализируем переменную tpir как None для нового отчета
+
     if request.method == 'POST':
         form = TpirForm(request.POST, user=request.user)
         if form.is_valid():
@@ -161,9 +159,10 @@ def tpir_add(request):
 
     context = {
         'form': form,
-        'title': 'Добавление нового отчета'
+        'title': 'Добавление нового отчета',
+        'tpir': tpir  # Передаем None для нового отчета
     }
-    return render(request, 'tpir/add_tpir.html', context)
+    return render(request, 'tpir/edit_tpir.html', context)
 
 
 @login_required
@@ -176,10 +175,12 @@ def tpir_edit(request, pk):
             'created_by',
             'updated_by'
         ).prefetch_related(
-            'finance_records'
+            'finance_records',
+            'attached_files'
         ),
         pk=pk
     )
+
     if request.method == 'POST':
         form = TpirForm(request.POST, instance=tpir, user=request.user)
         if form.is_valid():
@@ -189,7 +190,7 @@ def tpir_edit(request, pk):
 
             # Обработка финансовых данных
             existing_finances = {str(f.id): f for f in tpir.finance_records.all()}
-            existing_years = {f.year for f in existing_finances.values()}  # Собираем существующие года
+            existing_years = {f.year for f in existing_finances.values()}
 
             for key, value in request.POST.items():
                 if key.startswith('finance_year_'):
@@ -207,7 +208,7 @@ def tpir_edit(request, pk):
                                 finance.amount = amount
                                 finance.save()
                                 del existing_finances[prefix]
-                                existing_years.discard(year_int)  # Удаляем год из отслеживаемых
+                                existing_years.discard(year_int)
                             else:
                                 # Для новой записи проверяем, нет ли дубликата года
                                 if year_int in existing_years:
@@ -222,39 +223,13 @@ def tpir_edit(request, pk):
                                     year=year_int,
                                     amount=amount
                                 )
-                                existing_years.add(year_int)  # Добавляем год в отслеживаемые
+                                existing_years.add(year_int)
                         except ValueError:
                             messages.error(request, f'Некорректное значение года: {year}')
                         except IntegrityError as e:
                             messages.error(request,
                                            f'Ошибка при сохранении данных для {year} года: {str(e)}')
                             continue
-
-            # # Обработка финансовых данных
-            # existing_finances = {str(f.id): f for f in tpir.finance_records.all()}
-            #
-            # for key, value in request.POST.items():
-            #     if key.startswith('finance_year_'):
-            #         prefix = key.replace('finance_year_', '')
-            #         year = value
-            #         amount = request.POST.get(f'finance_amount_{prefix}', 0)
-            #
-            #         if year and amount:
-            #             # Если это существующая запись (по ID)
-            #             if prefix.isdigit() and prefix in existing_finances:
-            #                 finance = existing_finances[prefix]
-            #                 finance.year = year
-            #                 finance.amount = amount
-            #                 finance.save()
-            #                 del existing_finances[prefix]
-            #             else:
-            #                 # Новая запись
-            #                 # Вот тут Intergrity Error
-            #                 TpirFinance.objects.create(
-            #                     report=tpir,
-            #                     year=year,
-            #                     amount=amount
-            #                 )
 
             # Удаление отмеченных записей
             for key in request.POST:
@@ -271,7 +246,7 @@ def tpir_edit(request, pk):
     context = {
         'form': form,
         'title': f'Редактирование отчета #{tpir.id}',
-        'tpir': tpir
+        'tpir': tpir  # Передаем существующий отчет
     }
     return render(request, 'tpir/edit_tpir.html', context)
 

@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Редактирование записи ТПИР{% endblock %}
+{% block title %}{% if form.instance.pk %}Редактирование{% else %}Добавление{% endif %} записи ТПИР{% endblock %}
 {% block styles %}
 <style>
     /* Основные стили таблицы */
@@ -94,7 +94,7 @@
 {% endblock %}
 
 {% block content %}
-    <h1>Редактирование записи ТПИР</h1>
+    <h1>{% if form.instance.pk %}Редактирование{% else %}Добавление{% endif %} записи ТПИР</h1>
     <div class="container report-list">
         <form method="post" class="form-group" id="tpirForm">
             {% csrf_token %}
@@ -151,51 +151,55 @@
                     <tr>
                         <th>Прикрепленные файлы:</th>
                         <td>
-                            {% if tpir.has_attachments %}
-                                <table style="width: 100%; margin-bottom: 15px;">
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 70%">Имя файла</th>
-                                            <th style="width: 30%">Дата загрузки</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for file in tpir.attached_files.all %}
+                            {% if tpir and tpir.id %}
+                                {% if tpir.has_attachments %}
+                                    <table style="width: 100%; margin-bottom: 15px;">
+                                        <thead>
                                             <tr>
-                                                <td>
-                                                    <a href="{% url 'tpir:download_file' file.id %}">
-                                                        {{ file.get_filename }}
-                                                    </a>
-                                                </td>
-                                                <td>{{ file.uploaded_at|date:"d.m.Y H:i" }}</td>
+                                                <th style="width: 70%">Имя файла</th>
+                                                <th style="width: 30%">Дата загрузки</th>
                                             </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                                <div style="display: flex; gap: 10px;">
-                                    <a href="{% url 'tpir:manage_attach' tpir.id %}" class="btn-primary" style="text-decoration: none;">
-                                        <button type="button" style="background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s ease; margin-top: 10px;">
-                                            Управление вложениями
-                                        </button>
-                                    </a>
+                                        </thead>
+                                        <tbody>
+                                            {% for file in tpir.attached_files.all %}
+                                                <tr>
+                                                    <td>
+                                                        <a href="{% url 'tpir:download_file' file.id %}">
+                                                            {{ file.get_filename }}
+                                                        </a>
+                                                    </td>
+                                                    <td>{{ file.uploaded_at|date:"d.m.Y H:i" }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    <div style="display: flex; gap: 10px;">
+                                        <a href="{% url 'tpir:manage_attach' tpir.id %}" class="btn-primary" style="text-decoration: none;">
+                                            <button type="button" style="background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s ease; margin-top: 10px;">
+                                                Управление вложениями
+                                            </button>
+                                        </a>
+                                        <a href="{% url 'tpir:add_file' tpir.id %}" class="btn-primary" style="text-decoration: none;">
+                                            <button type="button" style="background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s ease; margin-top: 10px;">
+                                                Добавить файлы
+                                            </button>
+                                        </a>
+                                        <a href="{% url 'tpir:download_attaches_zip' tpir.id %}" class="btn-primary" style="text-decoration: none;">
+                                            <button type="button" style="background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s ease; margin-top: 10px;">
+                                                Скачать все
+                                            </button>
+                                        </a>
+                                    </div>
+                                {% else %}
+                                    <p>Нет прикрепленных файлов</p>
                                     <a href="{% url 'tpir:add_file' tpir.id %}" class="btn-primary" style="text-decoration: none;">
                                         <button type="button" style="background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s ease; margin-top: 10px;">
                                             Добавить файлы
                                         </button>
                                     </a>
-                                    {% if tpir.has_attachments %}
-                                    <a href="{% url 'tpir:download_attaches_zip' tpir.id %}" class="btn-primary" style="text-decoration: none;">
-                                        <button type="button" style="background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.3s ease; margin-top: 10px;">
-                                            Скачать все
-                                        </button>
-                                    </a>
-                                    {% endif %}
-                                </div>
+                                {% endif %}
                             {% else %}
-                                <p>Нет прикрепленных файлов</p>
-                                <a href="{% url 'tpir:add_file' tpir.id %}" class="btn-primary" style="text-decoration: none;">
-                                    Добавить файлы
-                                </a>
+                                <p>Файлы можно будет добавить после сохранения отчета</p>
                             {% endif %}
                         </td>
                     </tr>
@@ -287,7 +291,7 @@
         });
 
         // Управление финансовыми записями
-        let financeCounter = {{ tpir.finance_records.count }};
+        let financeCounter = {{ tpir.finance_records.count|default:0 }};
 
         // Функция добавления новой финансовой записи
         function addFinanceRow(year = '', amount = '') {
